@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Banker Tycoon — Standard Reserve</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: linear-gradient(160deg, #1b1033, #0d0e1f 60%);
+    color: #f4f2ff;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    justify-content: center;
+    padding: 28px 16px 60px;
+  }
+  .wrap { max-width: 460px; width: 100%; }
+  h1 {
+    font-size: 24px;
+    font-weight: 700;
+    margin: 0 0 4px;
+    background: linear-gradient(90deg, #ffb347, #ff6ec7 50%, #7de3ff);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  p.sub { font-size: 13px; color: #b9b3e8; margin: 0 0 20px; line-height: 1.6; }
+
+  .levels { display: flex; gap: 8px; margin-bottom: 20px; }
+  .levels button {
+    flex: 1;
+    background: #241a45;
+    color: #cfc9ff;
+    border: 2px solid transparent;
+    border-radius: 10px;
+    padding: 10px 6px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .levels button.active { border-color: #ffb347; color: #ffd89a; }
+
+  .hud { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+  .stat {
+    background: #241a45;
+    border-radius: 12px;
+    padding: 12px 8px;
+    text-align: center;
+  }
+  .stat .l { font-size: 11px; color: #b9b3e8; margin: 0 0 4px; }
+  .stat .v { font-size: 18px; font-weight: 700; margin: 0; }
+
+  .day-bar { background: #241a45; border-radius: 10px; height: 10px; margin-bottom: 24px; overflow: hidden; }
+  .day-fill { height: 100%; background: linear-gradient(90deg, #ffb347, #ff6ec7); border-radius: 10px; transition: width 0.3s; }
+
+  .market {
+    background: #241a45;
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 18px;
+  }
+  .market h2 { font-size: 15px; font-weight: 700; margin: 0 0 10px; color: #ffd89a; }
+  .market-row { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; color: #d9d4ff; }
+  .market-row b { color: #fff; }
+
+  .event {
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    text-align: center;
+  }
+  .event.boom { background: #1f4d2e; color: #8ef0a8; }
+  .event.crash { background: #4d1f24; color: #f08e8e; }
+
+  .actions { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
+  .actions button {
+    border: 0;
+    border-radius: 12px;
+    padding: 14px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    color: #1a1130;
+  }
+  .btn-open { background: linear-gradient(90deg, #7de3ff, #66b8ff); }
+  .btn-retire { background: linear-gradient(90deg, #ffb347, #ff8f5e); }
+  .btn-hold { background: #3a2d63; color: #cfc9ff; }
+  .actions button:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  .result {
+    background: #241a45;
+    border-radius: 16px;
+    padding: 24px;
+    text-align: center;
+  }
+  .result .rank { font-size: 20px; font-weight: 700; margin: 0 0 6px; color: #ffd89a; }
+  .result .score { font-size: 40px; font-weight: 700; margin: 0 0 12px; }
+  .result p { font-size: 13px; color: #b9b3e8; margin: 0 0 18px; }
+  .result button {
+    background: linear-gradient(90deg, #ffb347, #ff6ec7);
+    border: 0;
+    border-radius: 10px;
+    padding: 12px 20px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #1a1130;
+    cursor: pointer;
+  }
+
+  footer { font-size: 11px; color: #7c76a8; line-height: 1.6; margin-top: 24px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Banker Tycoon</h1>
+  <p class="sub">Run a Standard Reserve branch network for 15 days. Open branches when it's worth it, retire them before an exit wave hits, hold when it's not clear. Highest score wins.</p>
+
+  <div id="setup">
+    <p class="sub" style="margin-bottom:10px;">Pick a difficulty:</p>
+    <div class="levels">
+      <button data-lvl="1">Calm</button>
+      <button data-lvl="2" class="active">Normal</button>
+      <button data-lvl="3">Volatile</button>
+      <button data-lvl="4">Chaos</button>
+    </div>
+    <div class="actions">
+      <button class="btn-open" id="startBtn" style="width:100%;">Start banking</button>
+    </div>
+  </div>
+
+  <div id="game" style="display:none;">
+    <div class="hud">
+      <div class="stat"><p class="l">Balance</p><p class="v" id="hudBalance">0</p></div>
+      <div class="stat"><p class="l">Branches</p><p class="v" id="hudBranches">0</p></div>
+      <div class="stat"><p class="l">Day</p><p class="v" id="hudDay">1/15</p></div>
+    </div>
+    <div class="day-bar"><div class="day-fill" id="dayFill" style="width:0%;"></div></div>
+
+    <div id="eventBanner"></div>
+
+    <div class="market">
+      <h2>Today's market</h2>
+      <div class="market-row"><span>Yield per branch</span><b id="mktYield">--</b></div>
+      <div class="market-row"><span>New license price</span><b id="mktPrice">--</b></div>
+      <div class="market-row"><span>Exit fee if you retire</span><b id="mktFee">--</b></div>
+    </div>
+
+    <div class="actions">
+      <button class="btn-open" id="openBtn">Open a branch</button>
+      <button class="btn-retire" id="retireBtn">Retire a branch</button>
+      <button class="btn-hold" id="holdBtn">Hold, next day</button>
+    </div>
+  </div>
+
+  <div id="finalScreen" style="display:none;">
+    <div class="result">
+      <p class="rank" id="rankOut">--</p>
+      <p class="score" id="scoreOut">0</p>
+      <p>final net worth after 15 days</p>
+      <button id="againBtn">Play again</button>
+    </div>
+  </div>
+
+  <footer>
+    Simplified illustrative game, not live protocol data.<br>
+    Unofficial fan tool, not affiliated with the Standard Reserve team.<br>
+    Screenshot your final score.
+  </footer>
+</div>
+
+<script>
+var state = {};
+var level = 2;
+
+document.querySelectorAll('.levels button').forEach(function(b){
+  b.addEventListener('click', function(){
+    document.querySelectorAll('.levels button').forEach(function(x){ x.classList.remove('active'); });
+    this.classList.add('active');
+    level = parseInt(this.dataset.lvl);
+  });
+});
+
+function rand(min, max) { return Math.random() * (max - min) + min; }
+
+function newState() {
+  return {
+    day: 1,
+    totalDays: 15,
+    balance: 500,
+    branches: 1,
+    event: null
+  };
+}
+
+function rollMarket() {
+  var volatility = [0.5, 1, 1.6, 2.4][level - 1];
+  var baseYield = 30 - state.branches * 1.2;
+  state.yieldPerBranch = Math.max(4, Math.round(baseYield * (1 + rand(-0.2, 0.2) * volatility)));
+  state.price = Math.round(rand(200, 900) * (1 + rand(-0.15, 0.15) * volatility));
+  var exitPressure = rand(5, 40) * volatility;
+  state.fee = Math.max(5, Math.min(70, Math.round(exitPressure)));
+
+  state.event = null;
+  var roll = Math.random();
+  if (roll < 0.08 * volatility) {
+    state.event = 'boom';
+    state.yieldPerBranch = Math.round(state.yieldPerBranch * 1.8);
+  } else if (roll < 0.16 * volatility) {
+    state.event = 'crash';
+    state.fee = Math.min(85, Math.round(state.fee * 1.7));
+  }
+}
+
+function fmt(n) { return Math.round(n).toLocaleString(); }
+
+function render() {
+  document.getElementById('hudBalance').textContent = fmt(state.balance);
+  document.getElementById('hudBranches').textContent = state.branches;
+  document.getElementById('hudDay').textContent = state.day + '/' + state.totalDays;
+  document.getElementById('dayFill').style.width = Math.round((state.day - 1) / state.totalDays * 100) + '%';
+
+  document.getElementById('mktYield').textContent = state.yieldPerBranch + ' STANDARD/day';
+  document.getElementById('mktPrice').textContent = fmt(state.price) + ' STANDARD';
+  document.getElementById('mktFee').textContent = state.fee + '%';
+
+  var banner = document.getElementById('eventBanner');
+  if (state.event === 'boom') {
+    banner.innerHTML = '<div class="event boom">Demand boom — yield spiked today</div>';
+  } else if (state.event === 'crash') {
+    banner.innerHTML = '<div class="event crash">Exit wave hitting the network — fees spiked</div>';
+  } else {
+    banner.innerHTML = '';
+  }
+
+  document.getElementById('openBtn').disabled = state.balance < state.price || state.branches >= 10;
+  document.getElementById('retireBtn').disabled = state.branches <= 0;
+}
+
+function dailyIncome() {
+  return state.branches * state.yieldPerBranch;
+}
+
+function advanceDay() {
+  state.balance += dailyIncome();
+  state.day += 1;
+  if (state.day > state.totalDays) {
+    endGame();
+    return;
+  }
+  rollMarket();
+  render();
+}
+
+function endGame() {
+  document.getElementById('game').style.display = 'none';
+  document.getElementById('finalScreen').style.display = 'block';
+  var score = Math.round(state.balance + state.branches * state.price);
+  var rank;
+  if (score < 800) rank = 'Novice banker';
+  else if (score < 1800) rank = 'Solid operator';
+  else if (score < 3200) rank = 'Reserve baron';
+  else rank = 'Standard legend';
+  document.getElementById('scoreOut').textContent = fmt(score);
+  document.getElementById('rankOut').textContent = rank;
+}
+
+document.getElementById('startBtn').addEventListener('click', function(){
+  state = newState();
+  rollMarket();
+  document.getElementById('setup').style.display = 'none';
+  document.getElementById('game').style.display = 'block';
+  render();
+});
+
+document.getElementById('openBtn').addEventListener('click', function(){
+  if (state.balance < state.price || state.branches >= 10) return;
+  state.balance -= state.price;
+  state.branches += 1;
+  advanceDay();
+});
+
+document.getElementById('retireBtn').addEventListener('click', function(){
+  if (state.branches <= 0) return;
+  var payout = state.yieldPerBranch * 10 * (1 - state.fee / 100);
+  state.balance += payout;
+  state.branches -= 1;
+  advanceDay();
+});
+
+document.getElementById('holdBtn').addEventListener('click', function(){
+  advanceDay();
+});
+
+document.getElementById('againBtn').addEventListener('click', function(){
+  document.getElementById('finalScreen').style.display = 'none';
+  document.getElementById('setup').style.display = 'block';
+});
+</script>
+</body>
+</html>
